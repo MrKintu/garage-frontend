@@ -14,7 +14,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@expo/vector-icons": "*",
     "@radix-ui/react-accordion": "^1.2.3",
     "@radix-ui/react-alert-dialog": "^1.1.6",
     "@radix-ui/react-aspect-ratio": "^1.1.2",
@@ -47,8 +46,6 @@
     "clsx": "*",
     "cmdk": "^1.1.1",
     "embla-carousel-react": "^8.6.0",
-    "expo-linear-gradient": "*",
-    "expo-status-bar": "*",
     "framer-motion": "^12.30.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.487.0",
@@ -61,7 +58,6 @@
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.55.0",
-    "react-native": "*",
     "react-resizable-panels": "^2.1.7",
     "react-responsive-masonry": "^2.1.7",
     "react-slick": "^0.29.0",
