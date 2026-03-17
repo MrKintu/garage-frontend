@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import './styles/globals.css';
 
 // Essential components for authentication flow
@@ -23,6 +24,55 @@ import { ApprovalQueue } from './components/ApprovalQueue';
 import { DocumentManagementCenter } from './components/DocumentManagementCenter';
 import { RegularRecruiterDashboard } from './components/RegularRecruiterDashboard';
 import { UnifiedRecruiterDashboard } from './components/UnifiedRecruiterDashboard';
+
+// View to route mapping
+const viewToRoute: Record<string, string> = {
+  'homepage': '/dashboard',
+  'landing': '/',
+  'about': '/about',
+  'login': '/auth/login',
+  'signup': '/auth/signup',
+  'role-select': '/auth/role-select',
+  'forgot-password': '/auth/forgot-password',
+  'admin-login': '/auth/admin-login',
+  'profile': '/profile',
+  'account-settings': '/settings',
+  'notifications': '/notifications',
+  'support': '/support',
+  'job-details': '/jobs/:id',
+  'job-tracker': '/jobs/tracker',
+  'job-posting': '/jobs/post',
+  'job-management': '/jobs/manage',
+  'my-queues': '/queues',
+  'queue-detail': '/queues/:id',
+  'queue-sourcing': '/queues/sourcing',
+  'candidate-management': '/candidates',
+  'candidate-profile': '/candidates/:id',
+  'interview-calendar': '/calendar',
+  'recruiter-messages': '/messages',
+  'recruiter-chat': '/chat',
+  'recruiter-stats': '/stats',
+  'recruiter-profile': '/recruiter/profile',
+  'team-management': '/team',
+  'approval-queue': '/approvals',
+  'documents': '/documents',
+  'document-management': '/documents',
+  'company-profile-setup': '/setup/company',
+  'create-user': '/users/create',
+  'recruiter-dashboard': '/recruiter/dashboard',
+};
+
+// Route to view mapping (reverse)
+const routeToView: Record<string, string> = Object.entries(viewToRoute).reduce(
+  (acc, [view, route]) => {
+    // Skip parameterized routes for direct mapping
+    if (!route.includes(':')) {
+      acc[route] = view;
+    }
+    return acc;
+  },
+  {} as Record<string, string>
+);
 
 // Loading component
 const LoadingSpinner = () => (
@@ -216,8 +266,11 @@ const demoProfiles = {
 };
 
 function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
   // App State
-  const [showLanding, setShowLanding] = useState(true);
+  const [showLanding, setShowLanding] = useState(location.pathname === '/');
   const [error, setError] = useState<string | null>(null);
   
   // Authentication State
@@ -344,7 +397,9 @@ function App() {
     setShowResumeUpload(false);
     setNewUserData(null);
     setError(null);
-  }, []);
+    // Navigate to landing page
+    navigate('/');
+  }, [navigate]);
 
   // Resume Upload Flow handlers
   const handleResumeUploadComplete = useCallback((resumeData: any) => {
@@ -385,7 +440,7 @@ function App() {
     setError(null);
   }, [newUserData, createDefaultUser]);
 
-  // Navigation handlers
+  // Navigation handlers - now integrated with React Router
   const handleNavigate = useCallback((view: string) => {
     setCurrentView(view);
     setNavigationHistory(prev => {
@@ -397,7 +452,21 @@ function App() {
     if (view !== 'queue-detail') setSelectedQueue(null);
     if (view !== 'candidate-profile') setSelectedCandidate(null);
     if (error) setError(null);
-  }, [error]);
+    
+    // Update URL to match the view
+    const route = viewToRoute[view];
+    if (route && !route.includes(':')) {
+      navigate(route, { replace: false });
+    }
+  }, [error, navigate]);
+  
+  // Sync current view with URL on location change
+  useEffect(() => {
+    const view = routeToView[location.pathname];
+    if (view && view !== currentView) {
+      setCurrentView(view);
+    }
+  }, [location.pathname, currentView]);
 
   // Landing page navigation handlers (memoized to prevent re-renders)
   const handleBackToApp = useCallback(() => {
@@ -415,10 +484,12 @@ function App() {
       const previousView = newHistory.at(-1) || 'homepage';
       setNavigationHistory(newHistory);
       setCurrentView(previousView);
+      // Use browser history for navigation
+      navigate(-1);
     } else {
       handleNavigate('homepage');
     }
-  }, [navigationHistory, handleNavigate]);
+  }, [navigationHistory, handleNavigate, navigate]);
 
   const handleJobApplication = useCallback((job: any, method: string) => {
     const isAlreadyTracked = trackedJobs.some(trackedJob => trackedJob.id === job.id);
@@ -492,15 +563,16 @@ function App() {
     handleNavigateToQueueDetail
   ]);
 
-  // Render current view
-  if (error) {
-    return <ErrorFallback onRetry={handleRetry} />;
-  }
+  // Main app render with Routes
+  const renderContent = () => {
+    if (error) {
+      return <ErrorFallback onRetry={handleRetry} />;
+    }
 
-  // Special case: Allow about page view without authentication
-  if (currentView === 'about') {
-    return (
-      <About
+    // Special case: Allow about page view without authentication
+    if (currentView === 'about' || location.pathname === '/about') {
+      return (
+        <About
         onGetStarted={isAuthenticated ? handleBackToApp : () => {
           setShowLanding(false);
           setAuthIntent('signup');
@@ -529,7 +601,7 @@ function App() {
   }
 
   // Handle landing page view - can be accessed both when logged out and logged in
-  if (showLanding || (isAuthenticated && currentView === 'landing')) {
+  if (showLanding || location.pathname === '/' || (isAuthenticated && currentView === 'landing')) {
     return <LandingPage 
       key={isAuthenticated ? "authenticated-landing" : "public-landing"}
       onGetStarted={isAuthenticated ? handleBackToApp : () => {
@@ -558,12 +630,17 @@ function App() {
         onRoleSelect={(role) => {
           if (role === 'admin') {
             setAuthView('admin-login' as any);
+            navigate('/auth/admin-login');
           } else {
             setUserRole(role);
             setAuthView(authIntent);
+            navigate(authIntent === 'login' ? '/auth/login' : '/auth/signup');
           }
         }}
-        onBack={() => setShowLanding(true)}
+        onBack={() => {
+          setShowLanding(true);
+          navigate('/');
+        }}
       />;
     }
 
@@ -574,33 +651,63 @@ function App() {
           setUserRole('admin' as any);
           setIsAuthenticated(true);
           setError(null);
+          navigate('/dashboard');
         }}
-        onBack={() => setAuthView('role-select')}
+        onBack={() => {
+          setAuthView('role-select');
+          navigate('/auth/role-select');
+        }}
       />;
     }
 
     if (authView === 'login' && userRole) {
       return <Login 
         userRole={userRole}
-        onLogin={handleLogin}
-        onSwitchToSignUp={() => setAuthView('signup')}
-        onForgotPassword={() => setAuthView('forgot-password')}
-        onBack={() => setAuthView('role-select')}
+        onLogin={(userData, role) => {
+          handleLogin(userData, role);
+          navigate('/dashboard');
+        }}
+        onSwitchToSignUp={() => {
+          setAuthView('signup');
+          navigate('/auth/signup');
+        }}
+        onForgotPassword={() => {
+          setAuthView('forgot-password');
+          navigate('/auth/forgot-password');
+        }}
+        onBack={() => {
+          setAuthView('role-select');
+          navigate('/auth/role-select');
+        }}
       />;
     }
 
     if (authView === 'signup' && userRole) {
       return <SignUp 
         userRole={userRole}
-        onSignUp={handleSignUp}
-        onSwitchToLogin={() => setAuthView('login')}
-        onBack={() => setAuthView('role-select')}
+        onSignUp={(userData, role) => {
+          handleSignUp(userData, role);
+          if (!showResumeUpload) {
+            navigate('/dashboard');
+          }
+        }}
+        onSwitchToLogin={() => {
+          setAuthView('login');
+          navigate('/auth/login');
+        }}
+        onBack={() => {
+          setAuthView('role-select');
+          navigate('/auth/role-select');
+        }}
       />;
     }
 
     if (authView === 'forgot-password') {
       return <ForgotPassword 
-        onBack={() => setAuthView('login')}
+        onBack={() => {
+          setAuthView('login');
+          navigate('/auth/login');
+        }}
       />;
     }
   }
@@ -821,6 +928,36 @@ function App() {
   }
 
   return <ThemeProvider><LoadingSpinner /></ThemeProvider>;
+  };
+
+  // Render with Routes for proper URL handling
+  return (
+    <Routes>
+      <Route path="/" element={renderContent()} />
+      <Route path="/about" element={renderContent()} />
+      <Route path="/auth/*" element={renderContent()} />
+      <Route path="/dashboard" element={renderContent()} />
+      <Route path="/profile" element={renderContent()} />
+      <Route path="/settings" element={renderContent()} />
+      <Route path="/notifications" element={renderContent()} />
+      <Route path="/support" element={renderContent()} />
+      <Route path="/jobs/*" element={renderContent()} />
+      <Route path="/queues/*" element={renderContent()} />
+      <Route path="/candidates/*" element={renderContent()} />
+      <Route path="/calendar" element={renderContent()} />
+      <Route path="/messages" element={renderContent()} />
+      <Route path="/chat" element={renderContent()} />
+      <Route path="/stats" element={renderContent()} />
+      <Route path="/recruiter/*" element={renderContent()} />
+      <Route path="/team" element={renderContent()} />
+      <Route path="/approvals" element={renderContent()} />
+      <Route path="/documents" element={renderContent()} />
+      <Route path="/setup/*" element={renderContent()} />
+      <Route path="/users/*" element={renderContent()} />
+      {/* Catch-all route - redirect to home */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
 
 export default App;
