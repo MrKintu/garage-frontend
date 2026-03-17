@@ -102,7 +102,15 @@ export default defineConfig({
     allowedHosts: true,
     hmr: {
       overlay: false
-    }
+    },
+    // Enable history API fallback for SPA routing
+    historyApiFallback: true
+  },
+  
+  // Ensure proper handling of client-side routing in preview mode
+  preview: {
+    port: 5000,
+    host: '0.0.0.0'
   },
 
   optimizeDeps: {
